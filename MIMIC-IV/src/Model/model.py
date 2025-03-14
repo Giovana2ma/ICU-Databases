@@ -16,18 +16,13 @@ class Model():
         self.param_comb = list(itertools.product(*self.parameters.values()))
         return self.param_comb
     
-    def split_data(self,target):
-        X = self.data.drop(columns=[target])
-        y = self.data[target]
-        X_train, self.X_test, y_train, self.y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        self.data_train = (X_train, y_train)
-        return self.data_train, self.X_test, self.y_test
-    
-    def get_train_test(self):
-        self.data_train = (self.data)
-        self.y_test = self.data
-        self.X_test = self.data
+    def set_train(self,train):
+        self.data_train = train
 
+    def set_test(self,X_test,y_test):
+        self.X_test = X_test
+        self.y_test = y_test
+    
     def fit(self,parameters):
         self.model.set_params(**parameters)  # Set model parameters
         self.model.fit(*self.data_train)  # Fit the model
