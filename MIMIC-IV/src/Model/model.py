@@ -43,6 +43,7 @@ class Model():
             if score > self.best_score:
                 self.best_score = score
                 self.best_params = param_dict
+                self.labels = labels
 
 
     
