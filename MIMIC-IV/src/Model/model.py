@@ -1,8 +1,5 @@
-import pandas as pd
-import numpy as np
 import itertools
-from sklearn.model_selection import train_test_split
-
+import concurrent.futures
 class Model():
     def __init__(self,data,model,score,parameters):
         self.data = data
@@ -30,20 +27,38 @@ class Model():
     def predict(self):
         return self.model.predict(self.X_test)
     
-    def grid_search(self):
-        self.get_param_comb()
+    def evaluate_model(self, params):
+        param_dict = dict(zip(self.parameters.keys(), params))
 
-        for params in self.param_comb:
-            param_dict = dict(zip(self.parameters.keys(), params))
-            
-            self.fit(param_dict)
-            labels = self.predict()
-            score = self.score(self.y_test, labels)
-            
+        model_clone = self.model.__class__()  # Create a new instance of the model
+        model_clone.set_params(**param_dict)
+        model_clone.fit(*self.data_train)
+        labels = model_clone.predict(self.X_test)
+        score = self.score(self.y_test, labels)
+        
+        return score, param_dict, labels
+
+    def grid_search(self, n_jobs=16):
+        self.get_param_comb()
+        self.results = []
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            results = list(executor.map(self.evaluate_model, self.param_comb))
+
+        for score, param_dict, labels in results:
+            self.results.append({'params': param_dict, 'score': score}) 
+
+        for score, param_dict, labels in results:
             if score > self.best_score:
                 self.best_score = score
                 self.best_params = param_dict
                 self.labels = labels
+
+        return self.results
+                
+
+    
+
 
 
     
