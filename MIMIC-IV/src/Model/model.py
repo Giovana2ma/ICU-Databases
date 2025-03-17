@@ -27,6 +27,7 @@ class Model():
     def evaluate_model(self, params):
         param_dict = dict(zip(self.parameters.keys(), params))
 
+        print(self.model.__class__.__name__,param_dict)
         try: 
             labels = self.fit_predict(
                 self.model.__class__() ,
@@ -36,6 +37,7 @@ class Model():
                 y_train = self.y_train,
             )
             score = self.score(self.y_test, labels)
+            print(self.model.__class__.__name__,param_dict,score)
             
             return score, param_dict, labels
         

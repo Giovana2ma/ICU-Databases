@@ -4,9 +4,14 @@ import pandas as pd
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
 import miceforest as mf
-from sklearn.metrics import silhouette_score
-from sklearn.datasets import make_classification, make_blobs
-from sklearn.model_selection import train_test_split
+from missingpy import MissForest
+from sklearn.experimental import enable_iterative_imputer  
+from sklearn.impute import IterativeImputer  
+from sklearn.linear_model import LinearRegression  
+from sklearn.ensemble import RandomForestRegressor  
+from sklearn.tree import DecisionTreeRegressor  
+from sklearn.neighbors import KNeighborsRegressor  
+from xgboost import XGBRegressor 
 
 def generate_data(rows=1000, cols=5, missing_percentage=0.1, seed=None):
     """
@@ -42,7 +47,7 @@ def generate_data(rows=1000, cols=5, missing_percentage=0.1, seed=None):
     return df
 
 def split_data(X,test_size=0.3, random_state=42):
-    X_train = X.melt(id_vars=['id'])
+    X_train = X.melt(id_vars=['stay_id'])
     X_train = X_train.dropna()
 
     np.random.seed(random_state)  
@@ -52,7 +57,7 @@ def split_data(X,test_size=0.3, random_state=42):
     X_test = X_test.loc[missing_indices]
     X_train.loc[missing_indices, 'value'] = np.nan
     
-    X_train = X_train.pivot(index='id', columns='variable', values='value')
+    X_train = X_train.pivot(index='stay_id', columns='variable', values='value')
     X_train = X_train.reset_index()
 
 
@@ -60,8 +65,8 @@ def split_data(X,test_size=0.3, random_state=42):
 
 def score(y_test,y_pred):
     # print(y_pred)
-    y_pred = y_pred.melt(id_vars=['id'])
-    merged = y_test.merge(y_pred, on=['id', 'variable'], suffixes=('_true', '_pred'))
+    y_pred = y_pred.melt(id_vars=['stay_id'])
+    merged = y_test.merge(y_pred, on=['stay_id', 'variable'], suffixes=('_true', '_pred'))
     return np.sqrt(np.mean((merged['value_true'] - merged['value_pred']) ** 2))
 
 def prepare_model(model,parameters,**kwargs):
@@ -81,38 +86,46 @@ def define_model(data,model,parameters):
     return model
 
 def train_models():
-    data = generate_data()
+    data_bin = pd.read_csv('MIMIC-IV/Data/Base/base_bin.csv')
+    data_bin = data_bin.drop(columns = ['subject_id','hadm_id','antibiotic_time', 'culture_time','suspected_infection_time'])
     
     models = [
         
-        # KNN Imputer
-        (KNNImputer(), {
-            'n_neighbors': [3, 5, 7, 10],
-            'weights': ['uniform', 'distance'],
-            'metric': ['nan_euclidean']
-        }),
+        # # KNN Imputer
+        # (KNNImputer(), {
+        #     'n_neighbors': [3, 5, 7, 10],
+        #     'weights': ['uniform', 'distance'],
+        #     'metric': ['nan_euclidean']
+        # }),
 
         # Iterative Imputer (MICE - Multiple Imputation by Chained Equations)
         (IterativeImputer(), {
-            'max_iter': [5, 10, 20],
-            'initial_strategy': ['mean', 'median', 'most_frequent'],
-            'imputation_order': ['ascending', 'descending', 'random']
+            'estimator': [
+                None,  # Usa BayesianRidge() como padrão
+                LinearRegression(),
+                RandomForestRegressor(n_estimators=100),
+                DecisionTreeRegressor(),
+                KNeighborsRegressor(n_neighbors=5),
+                XGBRegressor(objective='reg:squarederror', n_estimators=100)
+            ],
+            'max_iter': [5, 10]
         }),
         
-        # MICEForest (Multiple Imputation using LightGBM)
-        # (mf.ImputationKernel, {
-        #     'datasets': [1, 3, 5],  # Number of datasets to generate
-        #     'categorical_feature': [None],  # List of categorical column names
-        #     'save_all_iterations': [True, False],  # Whether to keep all iterations
-        #     'mean_match_candidates': [5, 10],  # Number of closest matches for filling missing values
-        #     'random_state': [42]  # Ensures reproducibility
-        # })
+        # (mf.ImputationKernel(data_bin), {
+        #     'n_estimators': [50, 100, 200],  # Número de árvores no Random Forest
+        #     'max_depth': [None, 10, 20],  # Profundidade máxima das árvores
+        #     'max_features': ['sqrt', 'log2', None]
+        # }),
+        (MissForest(), {
+            'n_estimators': [50, 100, 200],  # Número de árvores na floresta
+            'max_depth': [None, 10, 20]  # Profundidade máxima das árvores
+        })
     ]
 
 
     for model, params in models:
-        m = define_model(data, model, params)
-        m.grid_search('nome_do_arquivo')  
+        m = define_model(data_bin, model, params)
+        m.grid_search(f'MIMIC-IV/Data/Results/{model.__class__.__name__}_bin.csv')  
 
 def main():
 
