@@ -1,4 +1,5 @@
 from model import *
+import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.cluster import DBSCAN
@@ -6,14 +7,24 @@ from hdbscan import HDBSCAN
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
 
+def generate_data(n_samples=30, n_features=5, random_state=42):
+    np.random.seed(random_state)
+    X = np.random.rand(n_samples, n_features)
+    return pd.DataFrame(X, columns=[f'feature_{i}' for i in range(n_features)])
+    
+def prepare_model(model,parameters,**kwargs):
+    model.set_params(**parameters)
+    X_train = kwargs.get("X_train")
+    return model.fit_predict(X_train)
+
 def define_model(data,model,parameters):
-    model = Model(data,model,silhouette_score,parameters)
-    model.set_train((data,))
+    model = Model(data,model,silhouette_score,prepare_model,parameters)
+    model.set_train(data,data)
     model.set_test(data,data)
     return model
 
 def train_models():
-    data = pd.read_csv('/scratch/haniel.botelho/physionet.org/files/mimiciv/2.2/Data24h/variables_count.csv')
+    data = generate_data()
     
     models = [
         (KMeans(), {
@@ -21,7 +32,7 @@ def train_models():
             'init': ['k-means++', 'random'],
             'max_iter': [100, 200, 300],
             'tol': [1e-4, 1e-3, 1e-2],
-            'algorithm': ['auto', 'full', 'elkan']
+            'algorithm': ['elkan', 'lloyd']
         }),
         (DBSCAN(), {
             'eps': [0.1, 0.3, 0.5, 0.7, 1.0],
@@ -45,21 +56,12 @@ def train_models():
 
     for model, params in models:
         m = define_model(data, model, params)
-        results = m.grid_search()  
-
-        results = pd.DataFrame(results)
-        results.to_csv(f'MIMIC-IV/Data/Results/clustering_results_{model.__class__.__name__}.csv', index=False)
-
-
+        m.grid_search('nome_do_arquivo')  
 
 def main():
 
-    data = pd.read_csv('/scratch/haniel.botelho/physionet.org/files/mimiciv/2.2/Data24h/variables_count.csv')
-    param_kmeans = {'n_clusters': [2, 3, 4], 'init': ['k-means++', 'random']}
-    kmeans = define_model(data,KMeans(),param_kmeans)
-    kmeans.grid_search()
-
-    return 
+    train_models()
+ 
 
 if __name__ == '__main__':
     main()
