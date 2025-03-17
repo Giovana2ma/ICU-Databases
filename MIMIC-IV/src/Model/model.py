@@ -27,21 +27,22 @@ class Model():
     def evaluate_model(self, params):
         param_dict = dict(zip(self.parameters.keys(), params))
 
-        # try: 
-        labels = self.fit_predict(
-            self.model.__class__() ,
-            param_dict,
-            X_test = self.X_test,
-            X_train = self.X_train,
-            y_train = self.y_train,
-        )
-        score = self.score(self.y_test, labels)
+        try: 
+            labels = self.fit_predict(
+                self.model.__class__() ,
+                param_dict,
+                X_test = self.X_test,
+                X_train = self.X_train,
+                y_train = self.y_train,
+            )
+            score = self.score(self.y_test, labels)
+            
+            return score, param_dict, labels
         
-        return score, param_dict, labels
-        
-        # except Exception as e:
-        #     print(self.model.__class__.__name__,param_dict)
-        #     return 0,{},[]
+        except Exception as e:
+            print(self.model.__class__.__name__,param_dict)
+            print(e)
+            return 0,{},[]
         
 
     def grid_search(self,filename, n_jobs=16):
